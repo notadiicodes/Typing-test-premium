@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Typing Master — Premium</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@300;400;500&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-1:#000000; --bg-2:#0f1316;
+    --muted:#090c0e;
+    --accent-1:#2ca2aa; --accent-2:#3ba0ad;
+    --glass: rgba(255,255,255,0.03);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:Inter,system-ui,Roboto,Arial;
+    background:
+      radial-gradient(1200px 600px at 10% 10%, rgba(136,192,208,0.03), transparent 10%),
+      linear-gradient(180deg,var(--bg-1),var(--bg-2));
+    color:#e6eef6;
+    display:flex; align-items:center; justify-content:center;
+    padding:28px; -webkit-font-smoothing:antialiased;
+    overflow:hidden;
+  }
+
+  /* Particle canvas */
+  #particles-canvas{ position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.45; filter: blur(0.6px) saturate(1.05); }
+
+  /* Container (glass) */
+  .container{
+    position:relative; z-index:2; width:100%; max-width:980px; border-radius:16px;
+    padding:28px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.03); box-shadow:0 10px 40px rgba(2,6,23,0.65);
+    backdrop-filter: blur(10px) saturate(120%); display:flex; flex-direction:column; gap:18px;
+    animation: containerIn .42s cubic-bezier(.2,.9,.3,1);
+      /* Neon boundary effect */
+      box-shadow:
+        0 0 0 4px rgba(0,255,255,0.5), /* outer glow - moderate */
+        0 0 24px 10px #0ff, /* neon glow - moderate */
+        0 0 60px 24px rgba(0,255,255,0.18); /* neon glow - moderate */
+      border: 0px solid #0ff;
+      transition: box-shadow 0.3s, border-color 0.3s;
+  }
+  @keyframes containerIn{ from{opacity:0; transform:translateY(8px) scale(.995)} to{opacity:1; transform:none} }
+
+  h1{ margin:0; font-weight:600; font-size:1.9rem; text-align:center;
+    background:linear-gradient(90deg,var(--accent-1),var(--accent-2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+  .sub{ text-align:center; color:#656668; font-size:0.92rem; margin-top:2px }
+
+  /* Display */
+  #textDisplay{
+    background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+    border-radius:12px; padding:18px; min-height:150px; font-family:"Roboto Mono", monospace;
+    line-height:1.8; font-size:1.05rem; color:#e6eef6; overflow:hidden; position:relative; border:1px solid rgba(255,255,255,0.02);
+  }
+  /* inner wrapper that we animate vertically */
+  #textInner{ transition: transform 320ms cubic-bezier(.2,.9,.25,1), opacity 160ms ease; will-change: transform, opacity; }
+
+  .word-span{ display:inline-block; }
+  .char-span{ white-space:pre-wrap; display:inline; }
+  .correct{ color:#a3be8c; transition: color .12s }
+  .incorrect{ color:#bf616a; background: rgba(191,97,106,0.12); border-radius:2px; transition: background .12s }
+  .current-char{
+    background: linear-gradient(90deg, rgba(129,161,193,0.35), rgba(129,161,193,0.15));
+    color:#e6eef6; padding:0 3px; border-radius:3px;
+    box-shadow:0 0 8px rgba(129,161,193,0.25); animation: caretBlink 1s steps(1,start) infinite;
+  }
+  @keyframes caretBlink{ 50%{ background: linear-gradient(90deg, rgba(129,161,193,0.16), rgba(129,161,193,0.08)); } }
+
+  /* Input */
+  #userInput{
+    width:100%; height:120px; font-size:1rem; padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.03);
+    background: rgba(33,33,33,0.85); color:#fff; resize:none; font-family:"Roboto Mono"; outline:none;
+  }
+
+  /* Controls */
+  .controls{ display:flex; gap:14px; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; }
+  .left-controls{ display:flex; gap:12px; align-items:center; }
+
+  /* ======= Custom Dropdown ======= */
+  .custom-dropdown{
+    position:relative;
+    min-width:120px;
+    font-size:0.95rem;
+  }
+  .dropdown-btn{
+    width:100%;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:8px 12px;
+    border-radius:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015));
+    border:1px solid rgba(255,255,255,0.06);
+    color:#eaf2f8;
+    cursor:pointer;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    transition: box-shadow .18s, transform .12s, border-color .12s;
+    backdrop-filter: blur(6px);
+  }
+  .dropdown-btn:hover{ box-shadow: 0 12px 30px rgba(129,161,193,0.08); border-color: rgba(129,161,193,0.25); transform: translateY(-2px); }
+  .dropdown-btn .label{ font-weight:600; color:#eaf2f8; font-family:"Roboto Mono"; }
+  .dropdown-btn .caret{
+    width:18px; height:18px; display:inline-block; background-image: url('data:image/svg+xml;utf8,<svg fill="%23eaf2f8" height="20" viewBox="0 0 24 24" width="20" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>');
+    background-repeat:no-repeat; background-position:center;
+    transition: transform .22s ease;
+  }
+  .dropdown-btn[aria-expanded="true"] .caret{ transform: rotate(180deg); }
+
+  .dropdown-list{
+    position:absolute; left:0; top:calc(100% + 10px);
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    border-radius:12px; padding:8px; min-width:160px;
+    border:1px solid rgba(255,255,255,0.04);
+    box-shadow: 0 18px 60px rgba(1,6,12,0.6);
+    transform-origin: top center;
+    opacity:0; visibility:hidden; pointer-events:none;
+    transform: translateY(-6px) scale(.98);
+    transition: transform .22s cubic-bezier(.2,.9,.25,1), opacity .18s ease, visibility .18s;
+    z-index:5;
+  }
+  .dropdown-list.show{ opacity:1; visibility:visible; pointer-events:auto; transform: translateY(0) scale(1); }
+
+  .dropdown-item{
+    padding:8px 10px; border-radius:8px; color:#eaf2f8; cursor:pointer;
+    display:flex; justify-content:space-between; align-items:center; gap:8px;
+  }
+  .dropdown-item:hover, .dropdown-item[aria-selected="true"]{
+    background: rgba(129,161,193,0.08);
+    color:#eaf2f8;
+  }
+  .dropdown-item .muted{ color:var(--muted); font-size:0.85rem; font-weight:500; }
+  /* keyboard focus ring */
+  .dropdown-item:focus{ outline:none; box-shadow: 0 0 0 3px rgba(129,161,193,0.08); border-radius:8px; }
+
+  @media (max-width:520px){
+    .dropdown-list{ min-width:140px; left:auto; right:0; }
+  }
+  /* ===== end custom dropdown ===== */
+
+  .metrics{ display:flex; gap:8px; align-items:center; color:var(--muted); font-size:0.95rem; }
+  .metric{
+    background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    padding:8px 12px; border-radius:10px; border:1px solid rgba(255,255,255,0.02); min-width:96px;
+    text-align:left; box-shadow:0 6px 22px rgba(10,12,14,0.45);
+  }
+  .metric .label{ font-size:0.78rem; color:var(--muted) }
+  .metric .value{ font-weight:600; margin-top:4px; color:#eaf2f8; font-family:"Roboto Mono"; }
+
+  .btns{ display:flex; gap:10px; }
+  .btn{
+    --bg: linear-gradient(90deg,var(--accent-1),var(--accent-2));
+    position:relative; padding:10px 16px; border-radius:10px; border:none; color:#08121a; font-weight:700;
+    cursor:pointer; background:var(--bg); box-shadow:0 8px 30px rgba(129,161,193,0.06); overflow:hidden;
+    transition: transform .14s ease, box-shadow .14s ease;
+  }
+  .btn:hover{ transform:translateY(-3px); box-shadow:0 18px 60px rgba(129,161,193,0.07); }
+  .btn::after{ content:""; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%) scale(0); width:160%; height:160%; border-radius:50%; background:rgba(255,255,255,0.06); opacity:0; transition: transform .6s ease, opacity .6s; }
+  .btn:active::after{ transform:translate(-50%,-50%) scale(1); opacity:1; transition: transform .12s, opacity .12s; }
+
+  .custom-text-option{ display:flex; gap:8px; align-items:center; color:var(--muted) }
+  .custom-text-area-wrapper{ margin-top:10px; display:none; }
+  .custom-text-area-wrapper.active{ display:block; }
+  #customParagraphInput{
+    width:100%; min-height:120px; border-radius:12px; padding:12px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0.01));
+    border:1px solid rgba(255,255,255,0.02); color:#dfeaf6; font-family:"Roboto Mono";
+  }
+
+  /* Popup */
+  #endScreen{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; z-index:4; opacity:0; visibility:hidden; pointer-events:none; transition: opacity .36s ease, visibility .36s; }
+  #endScreen.show{ opacity:1; visibility:visible; pointer-events:auto; }
+  #endScreenBackdrop{ position:absolute; inset:0; background:linear-gradient(180deg, rgba(2,6,12,0.55), rgba(2,6,12,0.65)); backdrop-filter: blur(6px) saturate(120%); }
+  #endScreenCard{
+    position:relative; z-index:2; width:100%; max-width:520px; border-radius:14px; background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+    padding:22px; border:1px solid rgba(255,255,255,0.03); box-shadow:0 16px 60px rgba(1,6,12,0.7);
+    transform: translateY(12px) scale(.98); opacity:0; transition: transform .36s cubic-bezier(.22,.9,.3,1), opacity .28s;
+  }
+  #endScreen.show #endScreenCard{ transform: translateY(0) scale(1); opacity:1; }
+
+  .fancy-name{ font-size:10px; color:var(--muted); text-align:center; margin-top:10px; }
+
+  @media(max-width:720px){ .controls{ flex-direction:column; align-items:stretch } .metrics{ justify-content:flex-start } }
+
+#trail-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+#particles-canvas {
+  z-index: 1; /* above trail */
+}
+.container {
+  position: relative;
+  z-index: 2; /* above both canvases */
+}
+
+</style>
+</head>
+<body>
+
+<canvas id="trail-canvas" aria-hidden="true"></canvas>
+<canvas id="particles-canvas" aria-hidden="true"></canvas>
+
+<div class="container" role="main" aria-labelledby="app-title">
+  <h1 id="app-title">Typing Master</h1>
+  <div class="sub">💡Start typing to begin — Press Enter to end. Close results to start again.</div>
+
+  <div id="textDisplay" aria-live="polite">
+    <div id="textInner"></div>
+  </div>
+
+  <textarea id="userInput" placeholder="Start typing here..." aria-label="Typing input" disabled></textarea>
+  <script>
+    // Ensure keyboard opens on mobile when tapping the box
+    document.getElementById('userInput').addEventListener('touchend', function(e) {
+      if (this.disabled) {
+        // Simulate Start button click to enable and focus
+        document.getElementById('startButton').click();
+        setTimeout(() => this.focus(), 100);
+      } else {
+        this.focus();
+      }
+    });
+    // Also support desktop click for accessibility
+    document.getElementById('userInput').addEventListener('click', function(e) {
+      if (this.disabled) {
+        document.getElementById('startButton').click();
+        setTimeout(() => this.focus(), 100);
+      } else {
+        this.focus();
+      }
+    });
+  </script>
+
+  <div class="controls">
+    <div class="left-controls">
+      <!-- Custom dropdown -->
+      <div class="custom-dropdown" id="timeDropdown" aria-haspopup="listbox">
+        <button class="dropdown-btn" id="dropdownBtn" aria-expanded="false" aria-controls="dropdownList" type="button">
+          <span class="label" id="dropdownLabel">5 Min</span>
+          <span class="caret" aria-hidden="true"></span>
+        </button>
+        <div class="dropdown-list" id="dropdownList" role="listbox" tabindex="-1" aria-labelledby="dropdownLabel">
+          <div class="dropdown-item" role="option" data-value="120" tabindex="0">2 Min <span class="muted">120s</span></div>
+          <div class="dropdown-item" role="option" data-value="300" tabindex="0" aria-selected="true">5 Min <span class="muted">300s</span></div>
+          <div class="dropdown-item" role="option" data-value="600" tabindex="0">10 Min <span class="muted">600s</span></div>
+          <div class="dropdown-item" role="option" data-value="0" tabindex="0">Free Mode <span class="muted">∞</span></div>
+        </div>
+      </div>
+
+      <div class="metrics" aria-hidden="false">
+        <div class="metric"><div class="label">Time</div><div class="value" id="timer">00:00</div></div>
+        <div class="metric"><div class="label">Accuracy</div><div class="value" id="accuracy">100.00%</div></div>
+        <div class="metric"><div class="label">WPM</div><div class="value" id="wpm">0</div></div>
+      </div>
+    </div>
+
+    <div class="btns">
+      <button class="btn" id="startButton">Start Test</button>
+      <button class="btn" id="finishButton" style="display:none;">Finish Test</button>
+      <button class="btn" id="resetButton">Reset Test</button>
+    </div>
+  </div>
+
+  <div class="custom-text-option">
+    <input type="checkbox" id="useCustomTextCheckbox" />
+    <label for="useCustomTextCheckbox" style="color:var(--muted)">Use Custom Text</label>
+  </div>
+
+  <div class="custom-text-area-wrapper" id="customTextAreaWrapper">
+    <textarea id="customParagraphInput" placeholder="Type or paste your custom paragraph here..."></textarea>
+  </div>
+
+  <div id="endScreen" role="dialog" aria-modal="true" aria-hidden="true">
+    <div id="endScreenBackdrop"></div>
+    <div id="endScreenCard" role="document" aria-labelledby="results-title">
+      <h2 id="results-title">Test Results</h2>
+      <p id="resultWPM">WPM: 0</p>
+      <p id="resultAccuracy">Accuracy: 100.00%</p>
+      <p id="resultTime">Time: 00:00</p>
+      <div style="display:flex; justify-content:center; margin-top:12px;">
+        <button class="btn" id="closeResultsBtn" style="padding:8px 14px">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="fancy-name">Made by ᎪᴅɪᴛʏA</div>
+</div>
+
+<script>
+/* ---------------- Main logic + custom dropdown glue ---------------- */
+
+const textInner = document.getElementById('textInner');
+const userInput = document.getElementById('userInput');
+const timerElement = document.getElementById('timer');
+const accuracyElement = document.getElementById('accuracy');
+const wpmElement = document.getElementById('wpm');
+const startButton = document.getElementById('startButton');
+const finishButton = document.getElementById('finishButton');
+const resetButton = document.getElementById('resetButton');
+
+const timeDropdown = document.getElementById('timeDropdown');
+const dropdownBtn = document.getElementById('dropdownBtn');
+const dropdownList = document.getElementById('dropdownList');
+const dropdownLabel = document.getElementById('dropdownLabel');
+
+const useCustomTextCheckbox = document.getElementById('useCustomTextCheckbox');
+const customTextAreaWrapper = document.getElementById('customTextAreaWrapper');
+const customParagraphInput = document.getElementById('customParagraphInput');
+
+const endScreen = document.getElementById('endScreen');
+const closeResultsBtn = document.getElementById('closeResultsBtn');
+const resultWPM = document.getElementById('resultWPM');
+const resultAccuracy = document.getElementById('resultAccuracy');
+const resultTime = document.getElementById('resultTime');
+
+const defaultParagraph = `life is a journey filled with ups and downs and every person walks a path that is unique to them sometimes the road is smooth and easy and everything feels like it is going your way but other times challenges appear and you have to gather your strength to keep moving forward even when you feel tired or uncertain there are moments when you might feel like giving up but those are the times when it is most important to keep going because every step you take no matter how small brings you closer to where you want to be learning from your mistakes growing from your experiences and staying true to your purpose are the things that help you become stronger over time the people you meet the lessons you learn and the choices you make all shape your story and your story is something that no one else can write for you each day gives you a chance to start fresh to try again and to move with a little more hope and confidence than the day before do not worry if progress feels slow because even small improvements add up and with patience and effort you will reach your goals always remember that you have the power to change your future by the actions you take today so keep going keep learning and never stop believing in yourself because you are capable of more than you think and the world is waiting to see all the amazing things you can do`;
+
+let paragraphLines = [];
+let currentLineIndex = 0;
+const linesToShow = 3;
+let currentParagraphText = '';
+let startTime = 0;
+let timerInterval = null;
+let running = false;
+let totalErrors = 0, totalTypedCharacters = 0, totalCorrectCharacters = 0;
+let popupOpen = false;
+let maxTime = 300; // default 5 min
+
+/* helpers */
+const formatTime = sec => `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+
+function splitParagraphIntoLines(text, charsPerLine = 70){
+  if (!text || !text.trim()) return ["Start typing in the custom text area to begin practice!"];
+  const words = text.split(/\s+/);
+  let lines = [], line = '';
+  for (const word of words){
+    if ((line + word).length + 1 > charsPerLine){
+      lines.push(line.trim());
+      line = word + ' ';
+    } else line += word + ' ';
+  }
+  if (line) lines.push(line.trim());
+  return lines;
+}
+function escapeHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function formatTextSegmentForDisplay(text){
+  return text.split(/(\s+)/).map(word => {
+    // Always wrap every character, including spaces, in .char-span
+    return `<span class=\"word-span\">${word.split('').map(c => c === ' ' ? '<span class=\"char-span\">&nbsp;</span>' : `<span class=\"char-span\">${escapeHtml(c)}</span>`).join('')}</span>`;
+  }).join('');
+}
+
+/* Render 3-line block */
+function updateDisplayLines(animate = true){
+  const slice = paragraphLines.slice(currentLineIndex, currentLineIndex + linesToShow);
+  currentParagraphText = slice.join(' ');
+  if (animate){
+    textInner.style.transition = 'transform 300ms cubic-bezier(.2,.9,.25,1), opacity 160ms';
+    textInner.style.opacity = '0';
+    textInner.style.transform = 'translateY(8px)';
+    setTimeout(() => {
+      textInner.innerHTML = formatTextSegmentForDisplay(currentParagraphText);
+      requestAnimationFrame(()=>{
+        textInner.style.opacity = '1';
+        textInner.style.transform = 'translateY(0)';
+      });
+    }, 110);
+  } else {
+    textInner.innerHTML = formatTextSegmentForDisplay(currentParagraphText);
+    textInner.style.opacity = '1';
+    textInner.style.transform = 'translateY(0)';
+  }
+  applyTypingFeedback(userInput.value || '');
+}
+
+function calculateFeedback(typed, target){
+  let correct = 0, incorrect = 0;
+  for (let i = 0; i < Math.min(typed.length, target.length); i++){
+    if (typed[i] === target[i]) correct++;
+    else incorrect++;
+  }
+  if (typed.length > target.length) incorrect += typed.length - target.length;
+  return { correct, incorrect, typed: typed.length };
+}
+
+/* animate numbers */
+function animateNumberEl(el, from, to, duration = 360, formatFn = v => v){
+  if (!el) return;
+  const start = performance.now();
+  function frame(now){
+    const p = Math.min(1, (now - start) / duration);
+    const eased = p < .5 ? 2*p*p : (-1 + (4 - 2*p)*p);
+    const val = from + (to - from) * eased;
+    el.textContent = formatFn(Math.round(val * 100) / 100);
+    if (p < 1) requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+
+function updateMetrics(elapsed, input){
+  const f = calculateFeedback(input || '', currentParagraphText || '');
+  const liveCorrect = totalCorrectCharacters + f.correct;
+  const liveTyped = totalTypedCharacters + f.typed;
+  const acc = liveTyped ? (liveCorrect / liveTyped) * 100 : 100;
+
+  const currentAccRaw = parseFloat(accuracyElement.textContent) || 100;
+  animateNumberEl(accuracyElement, currentAccRaw, acc, 300, v => `${v.toFixed(2)}%`);
+
+  const wpm = elapsed ? Math.round((liveCorrect / 5) / (elapsed / 60)) : 0;
+  const currentWpmRaw = parseInt(wpmElement.textContent) || 0;
+  animateNumberEl(wpmElement, currentWpmRaw, wpm, 420, v => `${Math.round(v)}`);
+}
+
+function applyTypingFeedback(input){
+  const spans = textInner.querySelectorAll('.char-span');
+  for (let i=0;i<spans.length;i++){
+    const span = spans[i];
+    span.classList.remove('correct','incorrect','current-char');
+    if (i < (input || '').length){
+      if ((input || '')[i] === currentParagraphText[i]) span.classList.add('correct');
+      else span.classList.add('incorrect');
+    } else if (i === (input || '').length){
+      span.classList.add('current-char');
+    }
+  }
+}
+
+/* Timer & flow */
+function startTimer(){
+  if (running) return;
+  running = true;
+  startTime = Date.now();
+  timerInterval = setInterval(()=>{
+    const elapsed = Math.floor((Date.now() - startTime)/1000);
+    timerElement.textContent = formatTime(elapsed);
+    updateMetrics(elapsed, userInput.value || '');
+    if (maxTime > 0 && elapsed >= maxTime) finishTest();
+  }, 1000);
+}
+
+function stopTimer(){
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = null; running = false;
+}
+
+/* Move one line at a time */
+function checkLineCompletion(){
+  if ((userInput.value || '').length >= currentParagraphText.length){
+    const f = calculateFeedback(userInput.value || '', currentParagraphText);
+    totalCorrectCharacters += f.correct;
+    totalErrors += f.incorrect;
+    totalTypedCharacters += f.typed;
+    currentLineIndex += 1;
+    userInput.value = '';
+    if (currentLineIndex < paragraphLines.length) updateDisplayLines(true);
+    else finishTest();
+  }
+}
+
+/* Finish */
+function finishTest(){
+  if (popupOpen) return;
+  stopTimer();
+  running = false;
+  popupOpen = true;
+  const elapsed = Math.floor((Date.now() - startTime)/1000);
+  updateMetrics(elapsed, userInput.value || '');
+  resultWPM.textContent = `WPM: ${wpmElement.textContent}`;
+  resultAccuracy.textContent = `Accuracy: ${accuracyElement.textContent}`;
+  resultTime.textContent = `Time: ${formatTime(elapsed)}`;
+  resetTest(true);
+  endScreen.classList.add('show');
+  endScreen.setAttribute('aria-hidden','false');
+}
+
+/* Reset */
+function resetTest(keepPopup=false){
+  stopTimer();
+  userInput.value = '';
+  userInput.disabled = true;
+  timerElement.textContent = '00:00';
+  accuracyElement.textContent = '100.00%';
+  wpmElement.textContent = '0';
+  totalErrors = totalTypedCharacters = totalCorrectCharacters = 0;
+  currentLineIndex = 0;
+  const textToUse = useCustomTextCheckbox.checked ? (customParagraphInput.value || '').trim() : defaultParagraph;
+  paragraphLines = splitParagraphIntoLines(textToUse);
+  while (paragraphLines.length < linesToShow) paragraphLines.push(' ');
+  updateDisplayLines(false);
+  startButton.style.display = 'inline-block';
+  finishButton.style.display = 'none';
+  if (!keepPopup){
+    popupOpen = false;
+    endScreen.classList.remove('show');
+    endScreen.setAttribute('aria-hidden','true');
+  }
+}
+
+/* Start */
+function startTest(){
+  if (popupOpen) return;
+  userInput.disabled = false;
+  userInput.focus();
+  startButton.style.display = 'none';
+  finishButton.style.display = 'inline-block';
+  const textToUse = useCustomTextCheckbox.checked ? (customParagraphInput.value || '').trim() : defaultParagraph;
+  paragraphLines = splitParagraphIntoLines(textToUse);
+  while (paragraphLines.length < linesToShow) paragraphLines.push(' ');
+  currentLineIndex = 0; totalErrors = totalTypedCharacters = totalCorrectCharacters = 0;
+  updateDisplayLines(false);
+  startTimer();
+}
+
+/* Events */
+useCustomTextCheckbox.addEventListener('change', ()=>{
+  customTextAreaWrapper.classList.toggle('active', useCustomTextCheckbox.checked);
+  customTextAreaWrapper.style.display = useCustomTextCheckbox.checked ? 'block' : 'none';
+  resetTest();
+  if (useCustomTextCheckbox.checked) {
+    setTimeout(() => customParagraphInput.focus(), 0);
+  }
+});
+
+// Hide custom text area on blur, but keep using the text if checkbox is checked
+customParagraphInput.addEventListener('blur', () => {
+  if (useCustomTextCheckbox.checked) {
+    customTextAreaWrapper.classList.remove('active');
+    customTextAreaWrapper.style.display = 'none';
+  }
+});
+startButton.addEventListener('click', startTest);
+finishButton.addEventListener('click', finishTest);
+resetButton.addEventListener('click', ()=> resetTest());
+closeResultsBtn.addEventListener('click', ()=>{
+  endScreen.classList.remove('show');
+  endScreen.setAttribute('aria-hidden','true');
+  popupOpen = false;
+});
+
+/* Input handling */
+userInput.addEventListener('input', e=>{
+  if (!running && (e.target.value || '').length > 0) startTimer();
+  const elapsed = Math.floor((Date.now() - startTime)/1000) || 0;
+  updateMetrics(elapsed, e.target.value || '');
+  applyTypingFeedback(e.target.value || '');
+  checkLineCompletion();
+});
+
+/* Key handling */
+document.addEventListener('keydown', e=>{
+  if (popupOpen){
+    if (e.key === 'Enter'){ endScreen.classList.remove('show'); endScreen.setAttribute('aria-hidden','true'); popupOpen = false; }
+    return;
+  }
+  if (document.activeElement === customParagraphInput) return;
+  if (!running && /^[a-zA-Z0-9]$/.test(e.key)){
+    startTest();
+    userInput.value += e.key;
+    applyTypingFeedback(userInput.value);
+    const elapsed = Math.floor((Date.now() - startTime)/1000) || 0;
+    updateMetrics(elapsed, userInput.value);
+    e.preventDefault();
+  } else if (e.key === 'Enter' && running){
+    finishTest();
+  }
+});
+
+/* Initialize */
+window.addEventListener('load', ()=>{
+  // set default selection (5 min)
+  maxTime = 300;
+  paragraphLines = splitParagraphIntoLines(defaultParagraph);
+  while (paragraphLines.length < linesToShow) paragraphLines.push(' ');
+  updateDisplayLines(false);
+  resetTest();
+});
+
+/* ------------- Custom dropdown behavior ------------- */
+const items = Array.from(dropdownList.querySelectorAll('.dropdown-item'));
+let focusedIndex = items.findIndex(it => it.getAttribute('aria-selected') === 'true');
+if (focusedIndex === -1) focusedIndex = 1; // default to 5 min position
+
+function openDropdown(){
+  dropdownList.classList.add('show');
+  dropdownBtn.setAttribute('aria-expanded','true');
+  items.forEach(it => it.tabIndex = 0);
+  // focus currently selected item
+  if (items[focusedIndex]) items[focusedIndex].focus();
+}
+function closeDropdown(){
+  dropdownList.classList.remove('show');
+  dropdownBtn.setAttribute('aria-expanded','false');
+  items.forEach(it => it.tabIndex = -1);
+  dropdownBtn.focus();
+}
+function setSelection(index, doClose = true){
+  items.forEach((it,i) => {
+    if (i === index) it.setAttribute('aria-selected','true'); else it.removeAttribute('aria-selected');
+  });
+  const val = items[index].dataset.value;
+  const labelText = items[index].childNodes[0].textContent.trim();
+  dropdownLabel.textContent = labelText;
+  maxTime = parseInt(val,10) || 0;
+  if (doClose) closeDropdown();
+}
+
+// click button toggles
+dropdownBtn.addEventListener('click', (e)=>{
+  if (dropdownList.classList.contains('show')) closeDropdown(); else openDropdown();
+});
+
+// clicking items
+items.forEach((it, i)=>{
+  it.addEventListener('click', (e)=>{
+    focusedIndex = i;
+    setSelection(i,true);
+  });
+  it.addEventListener('keydown', (ev)=>{
+    if (ev.key === 'ArrowDown'){ ev.preventDefault(); focusedIndex = Math.min(items.length-1, focusedIndex+1); items[focusedIndex].focus(); }
+    else if (ev.key === 'ArrowUp'){ ev.preventDefault(); focusedIndex = Math.max(0, focusedIndex-1); items[focusedIndex].focus(); }
+    else if (ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); setSelection(focusedIndex,true); }
+    else if (ev.key === 'Escape'){ ev.preventDefault(); closeDropdown(); }
+  });
+});
+
+// keyboard on dropdown button
+dropdownBtn.addEventListener('keydown', (e)=>{
+  if (e.key === 'ArrowDown'){ e.preventDefault(); openDropdown(); focusedIndex = 0; items[0].focus(); }
+  else if (e.key === 'ArrowUp'){ e.preventDefault(); openDropdown(); focusedIndex = items.length-1; items[focusedIndex].focus(); }
+  else if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openDropdown(); }
+  else if (e.key === 'Escape'){ closeDropdown(); }
+});
+
+// click outside closes dropdown
+document.addEventListener('click', (e)=>{
+  if (!timeDropdown.contains(e.target)) closeDropdown();
+});
+
+// ensure initial selection reflected
+(function initDropdownSelection(){
+  const selIndex = items.findIndex(it => it.getAttribute('aria-selected') === 'true');
+  const index = selIndex >= 0 ? selIndex : 1;
+  focusedIndex = index;
+  dropdownLabel.textContent = items[index].childNodes[0].textContent.trim();
+  maxTime = parseInt(items[index].dataset.value,10) || 0;
+  items.forEach((it,i)=> { it.tabIndex = -1; });
+})();
+
+/* ------------- Particles ------------- */
+(function(){
+  const canvas = document.getElementById('particles-canvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = innerWidth;
+  let h = canvas.height = innerHeight;
+  const particles = [];
+  const COUNT = Math.max(20, Math.floor((w*h)/150000));
+  let mx = w/2, my = h/2;
+  function rand(min,max){ return Math.random()*(max-min)+min; }
+  for (let i=0;i<COUNT;i++){
+    particles.push({ x:rand(0,w), y:rand(0,h), r:rand(0.6,2.2), vx:rand(-0.12,0.12), vy:rand(-0.06,0.06), hue:rand(190,210), alpha:rand(0.04,0.12) });
+  }
+  function resize(){ w=canvas.width=innerWidth; h=canvas.height=innerHeight; }
+  window.addEventListener('resize', resize);
+  window.addEventListener('mousemove', (e)=>{ mx=e.clientX; my=e.clientY; });
+  window.addEventListener('touchmove', (e)=>{ if (e.touches && e.touches[0]){ mx=e.touches[0].clientX; my=e.touches[0].clientY } }, {passive:true});
+  function draw(){
+    ctx.clearRect(0,0,w,h);
+    for (const p of particles){
+      const dx = (mx - p.x); const dy = (my - p.y); const dist = Math.sqrt(dx*dx+dy*dy)||1;
+      const force = Math.min(0.06, 1200/(dist*dist));
+      p.vx += (dx/dist) * force * 0.001; p.vy += (dy/dist) * force * 0.001;
+      p.x += p.vx; p.y += p.vy; p.vx *= 0.994; p.vy *= 0.994;
+      if (p.x < -20) p.x = w+20; if (p.x > w+20) p.x = -20;
+      if (p.y < -20) p.y = h+20; if (p.y > h+20) p.y = -20;
+      const grad = ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,p.r*8);
+      grad.addColorStop(0, `hsla(${p.hue},50%,65%,${p.alpha})`);
+      grad.addColorStop(1, `hsla(${p.hue},50%,65%,0)`);
+      ctx.fillStyle = grad; ctx.fillRect(p.x - p.r*8, p.y - p.r*8, p.r*16, p.r*16);
+    }
+    requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
+
+// Neon trail background effect
+(function(){
+  const canvas = document.getElementById('trail-canvas');
+  const ctx = canvas.getContext('2d');
+  let w = canvas.width = innerWidth;
+  let h = canvas.height = innerHeight;
+
+  window.addEventListener('resize', () => {
+    w = canvas.width = innerWidth;
+    h = canvas.height = innerHeight;
+  });
+
+  const points = [];
+  document.addEventListener('mousemove', e => {
+    points.push({ x: e.clientX, y: e.clientY, alpha: 1 });
+    if (points.length > 48) points.shift(); // limit trail length for performance
+  });
+
+  function drawTrail() {
+    ctx.clearRect(0, 0, w, h);
+    if (points.length > 1) {
+      ctx.save();
+      for (let i = 1; i < points.length; i++) {
+        const p0 = points[i - 1];
+        const p1 = points[i];
+        // Line width: thickest at head (mouse), thinnest at tail
+        const t = i / points.length; // 0 at tail, 1 at mouse
+        const width = 3 + t * 18; // 3 at tail, 21 at mouse
+        ctx.beginPath();
+        ctx.moveTo(p0.x, p0.y);
+        ctx.lineTo(p1.x, p1.y);
+        ctx.strokeStyle = `rgba(0,255,255,${0.25 + 0.35 * t})`;
+        ctx.lineWidth = width;
+        ctx.shadowColor = '#0ff';
+        ctx.shadowBlur = 16;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // Fade out old points
+    for (let i = 0; i < points.length; i++) {
+      points[i].alpha -= 0.03;
+    }
+    while (points.length && points[0].alpha <= 0) points.shift();
+    requestAnimationFrame(drawTrail);
+  }
+  drawTrail();
+})();
+
+</script>
+</body>
+</html>
